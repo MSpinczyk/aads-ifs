@@ -1,6 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from dataclasses import dataclass
 
 
 class IteratedFunctionSystem:
@@ -46,7 +45,7 @@ class IteratedFunctionSystem:
         if initial_point is None:
             initial_point = np.random.random(size=2)
 
-        points = np.zeros((num_points, 2))
+        points = np.empty((num_points, 2))
         points[0] = initial_point
 
         for i in range(1, num_points):
@@ -67,14 +66,11 @@ class IteratedFunctionSystem:
         plt.gca().set_aspect('equal', adjustable='box')
         plt.show()
 
-# Example usage:
-ifs = IteratedFunctionSystem()
-
-# Example transformations (feel free to add more):
-ifs.add_operator(np.array([0, 0, 0, 0.14, 0, 0]))
-ifs.add_operator(np.array([0.85, 0.04, -0.04, 0.85, 0.0, 1.6]))
-ifs.add_operator(np.array([0.2, -0.26, 0.23, 0.22, 0.0, 1.6]))
-ifs.add_operator(np.array([-0.15, 0.28, 0.26, 0.24, 0.0, 0.44]))
-
-# Generate and plot the fractal:
-ifs.plot_fractal(num_points=100000, initial_point=np.array([0, 0]))
+    @classmethod
+    def create_fern(cls):
+        ifs = cls()
+        ifs.add_operator(np.array([0, 0, 0, 0.14, 0, 0]))
+        ifs.add_operator(np.array([0.85, 0.04, -0.04, 0.85, 0.0, 1.6]))
+        ifs.add_operator(np.array([0.2, -0.26, 0.23, 0.22, 0.0, 1.6]))
+        ifs.add_operator(np.array([-0.15, 0.28, 0.26, 0.24, 0.0, 0.44]))
+        return ifs
