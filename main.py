@@ -14,7 +14,6 @@ a_ifs.add_operator(np.array([-0.20, 0.24, 0.22, 0.24, 0.0, 0.44]))
 a_ifs.plot_fractal(num_points=Parameters.n_points, initial_point=Parameters.initial_point)
 
 runner = Runner(target)
-print(runner.calculate_fitness(a_ifs))
 runner.generate_first_population()
 # runner.population[0].plot_fractal(num_points=Parameters.n_points, initial_point=Parameters.initial_point)
 runner.step()

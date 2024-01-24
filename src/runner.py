@@ -3,6 +3,8 @@ from src.ifs import IteratedFunctionSystem
 from src.parameters import Parameters
 import numpy as np
 from scipy.spatial import KDTree
+import random
+from src.operators import arithmetic_crossover, one_point_crossover, reassortment
 
 
 class Runner:
@@ -21,9 +23,18 @@ class Runner:
             self.calculate_fitness(ifs)
             print(ifs.fitness)
 
-        elite = max(self.population, key=lambda i: i.fitness)
-        breakpoint()
+        self.population = sorted(self.population, key=lambda individual: individual.fitness, reverse=True)
 
+        elite = self.population[0]
+
+        if elite.fitness > Parameters.elite_fitness_threshold:
+            new_pop.append(elite) 
+
+        new_pop += self.recombination_offspring()
+        new_pop += self.self_creation_offspring()
+        new_pop += self.reassortment_offspring()
+
+        breakpoint()
 
     def calculate_fitness(self, attractor_ifs: IteratedFunctionSystem):
         attractor_points = attractor_ifs.generate_points(Parameters.n_points, Parameters.initial_point)
@@ -54,13 +65,64 @@ class Runner:
         return fitness
 
     def generate_first_population(self):
-        for p in range(Parameters.population_size):
+        for _ in range(Parameters.initial_population_size):
             size = np.random.randint(Parameters.min_singel_dim, Parameters.max_singel_dim + 1)
             ifs = IteratedFunctionSystem()
-            for s in range(size):
+            for _ in range(size):
                 ifs.add_operator(np.random.uniform(-1, 1, size=(6)))
-                self.population.append(ifs)
+            self.population.append(ifs)
 
+    def fitness_proportional_selection(self) -> list[IteratedFunctionSystem]:
+        total_fitness = sum(individual.fitness for individual in self.population)
+        selection_probabilities = [individual.fitness / total_fitness for individual in self.population]
+
+        selected_individuals = []
+        for _ in range(2):
+            selected_individual = random.choices(self.population, weights=selection_probabilities)[0]
+            selected_individuals.append(selected_individual)
+
+        return selected_individuals
+
+    def recombination_offspring(self) -> list[IteratedFunctionSystem]:
+        offspring = []
+        for _ in range(Parameters.recombination_population_size // 2):
+            parents = self.fitness_proportional_selection()
+            if random.random() <= Parameters.p_arithmetic_crossover:
+                children = arithmetic_crossover(*parents)
+            else:
+                print('Else')
+                children = one_point_crossover(*parents)
+
+            offspring += children
+        return offspring
+
+    def self_creation_offspring(self) -> list[IteratedFunctionSystem]:
+        offspring = []
+        mean_fitness = np.mean([i.fitness for i in self.population])
+
+        if 1/mean_fitness > Parameters.max_self_creation_population_size:
+            n_specimen = Parameters.max_self_creation_population_size
+        else:
+            n_specimen = int(1/mean_fitness)
+
+        genetic_universum = [operator for ifs in self.population for operator in ifs.operators]
+        size = np.random.randint(Parameters.min_singel_dim, Parameters.max_singel_dim + 1)
+
+        for _ in range(n_specimen):
+            ifs = IteratedFunctionSystem()
+            ifs.operators += random.sample(genetic_universum, size)
+            offspring.append(ifs)
+
+        return offspring
+
+    def reassortment_offspring(self) -> list[IteratedFunctionSystem]:
+        offspring = []
+        for _ in range(Parameters.reassortment_population_size // 2):
+            parents = self.fitness_proportional_selection()
+            children = reassortment(*parents)
+            offspring += children
+
+        return offspring
 
     @property
     def target_ifs_bounds(self):

@@ -9,5 +9,11 @@ class Parameters:
     fitness_radius: float = 0.001
     min_singel_dim: int = 4
     max_singel_dim: int = 4
-    population_size: int = 6
-    elite_fitness_threshold: float = 0.5
+    initial_population_size: int = 6
+    recombination_population_size: int = 4
+    max_self_creation_population_size: int = 20
+    reassortment_population_size: int = 4
+    elite_fitness_threshold: float = 0.01
+    p_arithmetic_crossover: float = 0.5
+    p_vector_crossover: float = 1 - p_arithmetic_crossover
+    a: float = 0.5
