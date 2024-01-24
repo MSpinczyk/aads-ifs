@@ -1,23 +1,46 @@
 from collections import namedtuple
-from ifs import IteratedFunctionSystem
-from parameters import Parameters
+from src.ifs import IteratedFunctionSystem
+from src.parameters import Parameters
 import numpy as np
+from scipy.spatial import KDTree
 
 
 class Runner:
     def __init__(self, target_ifs: IteratedFunctionSystem):
+        self.population: list[IteratedFunctionSystem] = []
         self.target_ifs = target_ifs
         self.target_ifs_points = target_ifs.generate_points(
             Parameters.n_points, Parameters.initial_point
         )
         self._cached_ifs_bounds = None
 
-    def calculate_fitness(self, ifs: IteratedFunctionSystem):
-        ifs_points = ifs.generate_points(Parameters.n_points, Parameters.initial_point)
-        n_a = len(ifs_points)
+    def step(self):
+        new_pop = []
+
+        for ifs in self.population:
+            self.calculate_fitness(ifs)
+            print(ifs.fitness)
+
+        elite = max(self.population, key=lambda i: i.fitness)
+        breakpoint()
+
+
+    def calculate_fitness(self, attractor_ifs: IteratedFunctionSystem):
+        attractor_points = attractor_ifs.generate_points(Parameters.n_points, Parameters.initial_point)
+        attractor_tree = KDTree(attractor_points)
+        target_tree = KDTree(self.target_ifs_points)
+
+        attractor_neighbors = attractor_tree.query_ball_point(self.target_ifs_points, Parameters.fitness_radius, p=np.inf)
+        target_neighbors = target_tree.query_ball_point(attractor_points, Parameters.fitness_radius, p=np.inf)
+
+        # not drawn points - present in the image but not in the attractor
+        n_nd = np.sum([len(neighbors) == 0 for neighbors in target_neighbors])
+        # points not needed - present in the attractor but not in the image
+        n_nn = np.sum([len(neighbors) == 0 for neighbors in attractor_neighbors])
+
+        n_a = len(attractor_points)
         n_i = len(self.target_ifs_points)
-        n_nd = self.calculate_n_nd(ifs_points)
-        n_nn = self.calculate_n_nn(ifs_points)
+
         # relative coverage of the attractor
         r_c = n_nd/n_i
         # attractor points outside the image
@@ -25,15 +48,19 @@ class Runner:
 
         # fitness to maximise
         fitness = (1 - r_c) + (1 - r_o)
-        raise fitness
 
-    def calculate_n_nd(self, ifs_points: np.ndarray):
-        """not drawn points - present in the image but not in the attractor"""
-        raise NotImplementedError
+        attractor_ifs.fitness = fitness
 
-    def calculate_n_nn(self, ifs_points: np.ndarray):
-        """points not needed - present in the attractor but not in the image"""
-        raise NotImplementedError
+        return fitness
+
+    def generate_first_population(self):
+        for p in range(Parameters.population_size):
+            size = np.random.randint(Parameters.min_singel_dim, Parameters.max_singel_dim + 1)
+            ifs = IteratedFunctionSystem()
+            for s in range(size):
+                ifs.add_operator(np.random.uniform(-1, 1, size=(6)))
+                self.population.append(ifs)
+
 
     @property
     def target_ifs_bounds(self):

@@ -1,10 +1,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+from src.parameters import Parameters
+
 
 class IteratedFunctionSystem:
     def __init__(self):
         self.operators: list[np.ndarray] = []
+        self.fitness = None
 
     def add_operator(self, operator):
         """
@@ -53,7 +56,7 @@ class IteratedFunctionSystem:
 
         return points
 
-    def plot_fractal(self, num_points, initial_point=None):
+    def plot_fractal(self, num_points=Parameters.n_points, initial_point=Parameters.initial_point):
         """
         Generate and plot a fractal using the Iterated Function System.
 
