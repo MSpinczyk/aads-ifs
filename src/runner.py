@@ -4,7 +4,8 @@ from src.parameters import Parameters
 import numpy as np
 from scipy.spatial import KDTree
 import random
-from src.operators import arithmetic_crossover, one_point_crossover, reassortment
+from src.operators import arithmetic_crossover, one_point_crossover, reassortment, random_mutation, gaussian_mutation, binary_mutation
+import copy
 
 
 class Runner:
@@ -15,17 +16,22 @@ class Runner:
             Parameters.n_points, Parameters.initial_point
         )
         self._cached_ifs_bounds = None
+        self.mean_fitness = None
+        self.best = IteratedFunctionSystem()
 
     def step(self):
         new_pop = []
 
         for ifs in self.population:
             self.calculate_fitness(ifs)
-            print(ifs.fitness)
 
+        self.mean_fitness = np.mean([i.fitness for i in self.population])
         self.population = sorted(self.population, key=lambda individual: individual.fitness, reverse=True)
 
         elite = self.population[0]
+
+        if self.population[0].fitness > self.best.fitness:
+            self.best = copy.deepcopy(self.population[0])
 
         if elite.fitness > Parameters.elite_fitness_threshold:
             new_pop.append(elite) 
@@ -34,7 +40,15 @@ class Runner:
         new_pop += self.self_creation_offspring()
         new_pop += self.reassortment_offspring()
 
-        breakpoint()
+        for ifs in new_pop:
+            if random.random() < Parameters.mutation_probability:
+                if random.random() < self.mean_fitness / 2:
+                    gaussian_mutation(ifs)
+                else:
+                    random_mutation(ifs) if random.random() < 0.5 else binary_mutation(ifs)
+
+        self.population = new_pop
+
 
     def calculate_fitness(self, attractor_ifs: IteratedFunctionSystem):
         attractor_points = attractor_ifs.generate_points(Parameters.n_points, Parameters.initial_point)
@@ -66,10 +80,10 @@ class Runner:
 
     def generate_first_population(self):
         for _ in range(Parameters.initial_population_size):
-            size = np.random.randint(Parameters.min_singel_dim, Parameters.max_singel_dim + 1)
+            size = np.random.randint(Parameters.min_individual_degree, Parameters.max_individual_degree + 1)
             ifs = IteratedFunctionSystem()
             for _ in range(size):
-                ifs.add_operator(np.random.uniform(-1, 1, size=(6)))
+                ifs.add_function(np.random.uniform(-1, 1, size=(6)))
             self.population.append(ifs)
 
     def fitness_proportional_selection(self) -> list[IteratedFunctionSystem]:
@@ -90,7 +104,6 @@ class Runner:
             if random.random() <= Parameters.p_arithmetic_crossover:
                 children = arithmetic_crossover(*parents)
             else:
-                print('Else')
                 children = one_point_crossover(*parents)
 
             offspring += children
@@ -98,19 +111,18 @@ class Runner:
 
     def self_creation_offspring(self) -> list[IteratedFunctionSystem]:
         offspring = []
-        mean_fitness = np.mean([i.fitness for i in self.population])
 
-        if 1/mean_fitness > Parameters.max_self_creation_population_size:
+        if 1/self.mean_fitness > Parameters.max_self_creation_population_size:
             n_specimen = Parameters.max_self_creation_population_size
         else:
-            n_specimen = int(1/mean_fitness)
+            n_specimen = int(1/self.mean_fitness)
 
-        genetic_universum = [operator for ifs in self.population for operator in ifs.operators]
-        size = np.random.randint(Parameters.min_singel_dim, Parameters.max_singel_dim + 1)
+        genetic_universum = [function for ifs in self.population for function in ifs.functions]
+        size = np.random.randint(Parameters.min_individual_degree, Parameters.max_individual_degree + 1)
 
         for _ in range(n_specimen):
             ifs = IteratedFunctionSystem()
-            ifs.operators += random.sample(genetic_universum, size)
+            ifs.functions += random.sample(genetic_universum, size)
             offspring.append(ifs)
 
         return offspring
