@@ -22,9 +22,10 @@ for i in range(2000 + 1):
     print(f'----------Generation {i}----------')
     print(f'Mean Fitness:{runner.mean_fitness}')
     print(f'Best Fitness:{runner.best.fitness}')
-    if i % 500 == 0:
-        data = runner.best.generate_points(1_000_000)
-        data.tofile(f'data_{i}.bin')
+    if i % 10 == 0:
+        # data = runner.best.generate_points(250_000)
+        # data.tofile(f'data_{i}.bin')
+        runner.plot_fitness_grid()
 # 
 # breakpoint()
 # for ifs in runner.population:

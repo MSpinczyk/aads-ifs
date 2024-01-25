@@ -4,7 +4,7 @@ import numpy as np
 
 @dataclass
 class Parameters:
-    n_points: int = 2500
+    n_points: int = 500
     initial_point: ClassVar[np.ndarray] = np.array([0.0, 0.0])
     fitness_radius: float = 0.005
     min_individual_degree: int = 4
@@ -21,3 +21,6 @@ class Parameters:
     min_singel_coefficient: float = -1
     guassian_mutation_radius: float = 0.01
     mutation_probability: float = 0.12
+    fitness_grid_resolution: int = 200
+    p_rc: float = 0.9
+    p_ro: float = 0.1

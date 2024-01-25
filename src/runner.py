@@ -6,6 +6,8 @@ from scipy.spatial import KDTree
 import random
 from src.operators import arithmetic_crossover, one_point_crossover, reassortment, random_mutation, gaussian_mutation, binary_mutation
 import copy
+from scipy.spatial.distance import cdist
+import matplotlib.pyplot as plt
 
 
 class Runner:
@@ -50,33 +52,81 @@ class Runner:
         self.population = new_pop
 
 
+    @staticmethod
+    def find_closest_point(point, grid_points):
+        distances = cdist([point], grid_points, metric='euclidean')
+        closest_index = np.argmin(distances)
+        return grid_points[closest_index]
+
     def calculate_fitness(self, attractor_ifs: IteratedFunctionSystem):
         attractor_points = attractor_ifs.generate_points(Parameters.n_points, Parameters.initial_point)
-        attractor_tree = KDTree(attractor_points)
-        target_tree = KDTree(self.target_ifs_points)
+        target_points = self.target_ifs_points
 
-        attractor_neighbors = attractor_tree.query_ball_point(self.target_ifs_points, Parameters.fitness_radius, p=np.inf)
-        target_neighbors = target_tree.query_ball_point(attractor_points, Parameters.fitness_radius, p=np.inf)
+        # Create the grid only once if it remains constant
+        if not hasattr(self, 'grid_points'):
+            x_grid, y_grid = np.meshgrid(np.linspace(self.target_ifs_bounds.x_min, self.target_ifs_bounds.x_max, Parameters.fitness_grid_resolution),
+                                        np.linspace(self.target_ifs_bounds.y_min, self.target_ifs_bounds.y_max, Parameters.fitness_grid_resolution))
+            self.grid_points = np.column_stack((x_grid.flatten(), y_grid.flatten()))
 
-        # not drawn points - present in the image but not in the attractor
-        n_nd = np.sum([len(neighbors) == 0 for neighbors in target_neighbors])
-        # points not needed - present in the attractor but not in the image
-        n_nn = np.sum([len(neighbors) == 0 for neighbors in attractor_neighbors])
+
+        attractor_points_inside_bounds = [
+            point for point in attractor_points if self.target_ifs_bounds.x_min <= point[0] <= self.target_ifs_bounds.x_max and self.target_ifs_bounds.y_min <= point[1] <= self.target_ifs_bounds.y_max
+        ]
+
+        target_closest_points = [self.find_closest_point(target_point, self.grid_points) for target_point in target_points]
+        attractor_closest_points = [self.find_closest_point(attractor_point, self.grid_points) for attractor_point in attractor_points_inside_bounds]
+
+        attractor_set = set(map(tuple, attractor_closest_points))
+        target_set = set(map(tuple, target_closest_points))
+
+        n_nn = len(attractor_set - target_set) + len(attractor_points) - len(attractor_points_inside_bounds)
+        n_nd = len(target_set - attractor_set)
 
         n_a = len(attractor_points)
         n_i = len(self.target_ifs_points)
 
-        # relative coverage of the attractor
-        r_c = n_nd/n_i
-        # attractor points outside the image
-        r_o = n_nn/n_a
+        # Avoid division by zero
+        r_c = n_nd / n_i if n_i != 0 else 1
+        r_o = n_nn / n_a if n_a != 0 else 1
 
-        # fitness to maximise
-        fitness = (1 - r_c) + (1 - r_o)
+        # fitness to maximize
+        fitness = Parameters.p_rc * (1 - r_c) + Parameters.p_ro * (1 - r_o)
 
         attractor_ifs.fitness = fitness
 
         return fitness
+
+    def plot_fitness_grid(self):
+        attractor_ifs = self.best
+
+        attractor_points = attractor_ifs.generate_points(Parameters.n_points, Parameters.initial_point)
+        target_points = self.target_ifs_points
+
+        if not hasattr(self, 'grid_points'):
+            x_grid, y_grid = np.meshgrid(np.linspace(self.target_ifs_bounds.x_min, self.target_ifs_bounds.x_max, Parameters.fitness_grid_resolution),
+                                        np.linspace(self.target_ifs_bounds.y_min, self.target_ifs_bounds.y_max, Parameters.fitness_grid_resolution))
+            self.grid_points = np.column_stack((x_grid.flatten(), y_grid.flatten()))
+
+
+        attractor_points_inside_bounds = [
+            point for point in attractor_points if self.target_ifs_bounds.x_min <= point[0] <= self.target_ifs_bounds.x_max and self.target_ifs_bounds.y_min <= point[1] <= self.target_ifs_bounds.y_max
+        ]
+
+        target_closest_points = [self.find_closest_point(target_point, self.grid_points) for target_point in target_points]
+        attractor_closest_points = [self.find_closest_point(attractor_point, self.grid_points) for attractor_point in attractor_points_inside_bounds]
+
+        attractor_set = set(map(tuple, attractor_closest_points))
+        target_set = set(map(tuple, target_closest_points))
+
+        plt.scatter(*zip(*attractor_points), color='red', s=1, label='Attractor Points')
+        plt.scatter(*zip(*target_points), color='blue', s=1, label='Target Points')
+        # plt.scatter(*zip(*target_closest_points), color='green', s=1.5, label='Target Closest Point')
+        # plt.scatter(*zip(*attractor_closest_points), color='orange', s=1.5, label='Attractor Closest Point')
+        plt.scatter(*zip(*(attractor_set - target_set)), color='violet', s=1.5, label='Points not needed')
+        plt.scatter(*zip(*(target_set - attractor_set)), color='olive', s=1.5, label='Points not drawn')
+        plt.scatter(*zip(*self.grid_points), color='gray', s=1, alpha=0.2, marker='.')
+        plt.legend()
+        plt.show()
 
     def generate_first_population(self):
         for _ in range(Parameters.initial_population_size):
@@ -139,7 +189,7 @@ class Runner:
     @property
     def target_ifs_bounds(self):
         if self._cached_ifs_bounds is None:
-            Bounds = namedtuple('PointBounds', ['lower_x', 'upper_x', 'lower_y', 'upper_y'])
+            Bounds = namedtuple('PointBounds', ['x_min', 'x_max', 'y_min', 'y_max'])
 
             lower_x = min(self.target_ifs_points[:,0])
             upper_x = max(self.target_ifs_points[:,0])

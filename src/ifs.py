@@ -8,7 +8,7 @@ from matplotlib.colors import LogNorm
 class IteratedFunctionSystem:
     def __init__(self):
         self.functions: list[np.ndarray] = []
-        self.fitness = 0
+        self.fitness: float = 0
 
     def add_function(self, function):
         """
