@@ -4,7 +4,7 @@ import numpy as np
 
 @dataclass
 class Parameters:
-    n_points: int = 2500
+    n_points: int = 25000
     initial_point: ClassVar[np.ndarray] = np.array([0.0, 0.0])
     fitness_radius: float = 0.005
     min_individual_degree: int = 4

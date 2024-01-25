@@ -82,7 +82,7 @@ class IteratedFunctionSystem:
     @classmethod
     def create_fern(cls):
         ifs = cls()
-        ifs.add_function(np.array([0, 0, 0, 0.14, 0, 0]))
+        ifs.add_function(np.array([0, 0, 0, 0.16, 0, 0.0]))
         ifs.add_function(np.array([0.85, 0.04, -0.04, 0.85, 0.0, 1.6]))
         ifs.add_function(np.array([0.2, -0.26, 0.23, 0.22, 0.0, 1.6]))
         ifs.add_function(np.array([-0.15, 0.28, 0.26, 0.24, 0.0, 0.44]))
