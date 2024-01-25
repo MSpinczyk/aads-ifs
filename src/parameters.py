@@ -4,12 +4,12 @@ import numpy as np
 
 @dataclass
 class Parameters:
-    n_points: int = 500
+    n_points: int = 5000
     initial_point: ClassVar[np.ndarray] = np.array([0.0, 0.0])
     fitness_radius: float = 0.005
     min_individual_degree: int = 4
     max_individual_degree: int = 4
-    initial_population_size: int = 10
+    initial_population_size: int = 100
     recombination_population_size: int = 4
     max_self_creation_population_size: int = 10
     reassortment_population_size: int = 20
@@ -20,7 +20,7 @@ class Parameters:
     max_singel_coefficient: float = 1
     min_singel_coefficient: float = -1
     guassian_mutation_radius: float = 0.01
-    mutation_probability: float = 0.12
+    mutation_probability: float = 0.4
     fitness_grid_resolution: int = 200
-    p_rc: float = 0.9
-    p_ro: float = 0.1
+    p_rc: float = 0.8
+    p_ro: float = 0.2

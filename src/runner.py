@@ -8,6 +8,7 @@ from src.operators import arithmetic_crossover, one_point_crossover, reassortmen
 import copy
 from scipy.spatial.distance import cdist
 import matplotlib.pyplot as plt
+from scipy.spatial import cKDTree
 
 
 class Runner:
@@ -58,26 +59,72 @@ class Runner:
         closest_index = np.argmin(distances)
         return grid_points[closest_index]
 
-    def calculate_fitness(self, attractor_ifs: IteratedFunctionSystem):
+    # def calculate_fitness(self, attractor_ifs: IteratedFunctionSystem):
+    #     attractor_points = attractor_ifs.generate_points(Parameters.n_points, Parameters.initial_point)
+    #     target_points = self.target_ifs_points
+    #
+    #     # Create the grid only once if it remains constant
+    #     if not hasattr(self, 'grid_points'):
+    #         x_grid, y_grid = np.meshgrid(np.linspace(self.target_ifs_bounds.x_min, self.target_ifs_bounds.x_max, Parameters.fitness_grid_resolution),
+    #                                     np.linspace(self.target_ifs_bounds.y_min, self.target_ifs_bounds.y_max, Parameters.fitness_grid_resolution))
+    #         self.grid_points = np.column_stack((x_grid.flatten(), y_grid.flatten()))
+    #
+    #
+    #     attractor_points_inside_bounds = [
+    #         point for point in attractor_points if self.target_ifs_bounds.x_min <= point[0] <= self.target_ifs_bounds.x_max and self.target_ifs_bounds.y_min <= point[1] <= self.target_ifs_bounds.y_max
+    #     ]
+    #
+    #     target_closest_points = [self.find_closest_point(target_point, self.grid_points) for target_point in target_points]
+    #     attractor_closest_points = [self.find_closest_point(attractor_point, self.grid_points) for attractor_point in attractor_points_inside_bounds]
+    #
+    #     attractor_set = set(map(tuple, attractor_closest_points))
+    #     target_set = set(map(tuple, target_closest_points))
+    #
+    #     n_nn = len(attractor_set - target_set) + len(attractor_points) - len(attractor_points_inside_bounds)
+    #     n_nd = len(target_set - attractor_set)
+    #
+    #     n_a = len(attractor_points)
+    #     n_i = len(self.target_ifs_points)
+    #
+    #     # Avoid division by zero
+    #     r_c = n_nd / n_i if n_i != 0 else 1
+    #     r_o = n_nn / n_a if n_a != 0 else 1
+    #
+    #     # fitness to maximize
+    #     fitness = Parameters.p_rc * (1 - r_c) + Parameters.p_ro * (1 - r_o)
+    #
+    #     attractor_ifs.fitness = fitness
+    #
+    #     return fitness
+
+
+
+    def calculate_fitness(self, attractor_ifs):
         attractor_points = attractor_ifs.generate_points(Parameters.n_points, Parameters.initial_point)
         target_points = self.target_ifs_points
 
-        # Create the grid only once if it remains constant
-        if not hasattr(self, 'grid_points'):
-            x_grid, y_grid = np.meshgrid(np.linspace(self.target_ifs_bounds.x_min, self.target_ifs_bounds.x_max, Parameters.fitness_grid_resolution),
-                                        np.linspace(self.target_ifs_bounds.y_min, self.target_ifs_bounds.y_max, Parameters.fitness_grid_resolution))
-            self.grid_points = np.column_stack((x_grid.flatten(), y_grid.flatten()))
+        # Use cKDTree for efficient closest point search
+        if not hasattr(self, 'kd_tree'):
+            grid_x, grid_y = np.meshgrid(np.linspace(self.target_ifs_bounds.x_min, self.target_ifs_bounds.x_max,
+                                                     Parameters.fitness_grid_resolution),
+                                         np.linspace(self.target_ifs_bounds.y_min, self.target_ifs_bounds.y_max,
+                                                     Parameters.fitness_grid_resolution))
+            grid_points = np.column_stack((grid_x.flatten(), grid_y.flatten()))
+            self.kd_tree = cKDTree(grid_points)
 
+        # Filter attractor points inside bounds using NumPy
+        bounds_filter = (self.target_ifs_bounds.x_min <= attractor_points[:, 0]) & (
+                    attractor_points[:, 0] <= self.target_ifs_bounds.x_max) & \
+                        (self.target_ifs_bounds.y_min <= attractor_points[:, 1]) & (
+                                    attractor_points[:, 1] <= self.target_ifs_bounds.y_max)
+        attractor_points_inside_bounds = attractor_points[bounds_filter]
 
-        attractor_points_inside_bounds = [
-            point for point in attractor_points if self.target_ifs_bounds.x_min <= point[0] <= self.target_ifs_bounds.x_max and self.target_ifs_bounds.y_min <= point[1] <= self.target_ifs_bounds.y_max
-        ]
+        _, target_closest_indices = self.kd_tree.query(target_points)
+        _, attractor_closest_indices = self.kd_tree.query(attractor_points_inside_bounds)
 
-        target_closest_points = [self.find_closest_point(target_point, self.grid_points) for target_point in target_points]
-        attractor_closest_points = [self.find_closest_point(attractor_point, self.grid_points) for attractor_point in attractor_points_inside_bounds]
-
-        attractor_set = set(map(tuple, attractor_closest_points))
-        target_set = set(map(tuple, target_closest_points))
+        # Use NumPy for efficient set operations
+        attractor_set = set(attractor_closest_indices)
+        target_set = set(target_closest_indices)
 
         n_nn = len(attractor_set - target_set) + len(attractor_points) - len(attractor_points_inside_bounds)
         n_nd = len(target_set - attractor_set)
@@ -85,18 +132,15 @@ class Runner:
         n_a = len(attractor_points)
         n_i = len(self.target_ifs_points)
 
-        # Avoid division by zero
         r_c = n_nd / n_i if n_i != 0 else 1
         r_o = n_nn / n_a if n_a != 0 else 1
 
-        # fitness to maximize
         fitness = Parameters.p_rc * (1 - r_c) + Parameters.p_ro * (1 - r_o)
-
         attractor_ifs.fitness = fitness
 
         return fitness
 
-    def plot_fitness_grid(self):
+    def plot_fitness_grid(self, iter):
         attractor_ifs = self.best
 
         attractor_points = attractor_ifs.generate_points(Parameters.n_points, Parameters.initial_point)
@@ -117,7 +161,7 @@ class Runner:
 
         attractor_set = set(map(tuple, attractor_closest_points))
         target_set = set(map(tuple, target_closest_points))
-
+        plt.clf()
         plt.scatter(*zip(*attractor_points), color='red', s=1, label='Attractor Points')
         plt.scatter(*zip(*target_points), color='blue', s=1, label='Target Points')
         # plt.scatter(*zip(*target_closest_points), color='green', s=1.5, label='Target Closest Point')
@@ -126,7 +170,9 @@ class Runner:
         plt.scatter(*zip(*(target_set - attractor_set)), color='olive', s=1.5, label='Points not drawn')
         plt.scatter(*zip(*self.grid_points), color='gray', s=1, alpha=0.2, marker='.')
         plt.legend()
-        plt.show()
+        plt.savefig(f"obrozek-{iter}.png")
+        # plt.save()
+        # plt.show()
 
     def generate_first_population(self):
         for _ in range(Parameters.initial_population_size):

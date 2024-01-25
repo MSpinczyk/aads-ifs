@@ -17,15 +17,15 @@ target = IteratedFunctionSystem.create_fern()
 runner = Runner(target)
 runner.generate_first_population()
 
-for i in range(2000 + 1):
+for i in range(4000 + 1):
     runner.step()
     print(f'----------Generation {i}----------')
     print(f'Mean Fitness:{runner.mean_fitness}')
     print(f'Best Fitness:{runner.best.fitness}')
-    if i % 10 == 0:
-        # data = runner.best.generate_points(250_000)
-        # data.tofile(f'data_{i}.bin')
-        runner.plot_fitness_grid()
+    if i % 100 == 0:
+        data = runner.best.generate_points(250_000)
+        data.tofile(f'data_{i}.bin')
+        runner.plot_fitness_grid(i)
 # 
 # breakpoint()
 # for ifs in runner.population:
